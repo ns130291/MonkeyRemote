@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>de.nsvb</groupId>
+    <artifactId>MonkeyRemote</artifactId>
+    <version>0.1</version>
+    <packaging>jar</packaging>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.7</maven.compiler.source>
+        <maven.compiler.target>1.7</maven.compiler.target>
+        <com.android.tools.version>24.3.1</com.android.tools.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>net.sf.sociaal</groupId>
+            <artifactId>chimpchat</artifactId>
+            <version>22.6.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>18.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.android.tools</groupId>
+            <artifactId>sdklib</artifactId>
+            <version>${com.android.tools.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.android.tools</groupId>
+            <artifactId>common</artifactId>
+            <version>${com.android.tools.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.android.tools</groupId>
+            <artifactId>sdk-common</artifactId>
+            <version>${com.android.tools.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.android.tools.ddms</groupId>
+            <artifactId>ddmlib</artifactId>
+            <version>${com.android.tools.version}</version>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>        
+                <version>2.4.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>de.nsvb.monkeyremote.MonkeyRemote</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
