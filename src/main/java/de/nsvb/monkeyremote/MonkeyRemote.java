@@ -13,6 +13,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.swing.JFrame;
@@ -80,8 +81,16 @@ public class MonkeyRemote extends JFrame {
         if(args.length == 2){
             adb = args[0];
             scalingFactor = Float.parseFloat(args[1]);
-        } else if (args.length > 0){
+        } 
+        if (args.length > 0 || !new File(adb).exists() || new File(adb).isDirectory()){
+            if(!new File(adb).exists()){
+                System.err.println("Error: ADB executable wasn't found at \"" + adb + "\"");
+            }
+            if(new File(adb).isDirectory()){
+                System.err.println("Error: Path to ADB executable is a directory");
+            }
             System.out.println("Usage: MonkeyRemote [Path to ADB executable] [Scaling factor]");
+            return;
         }
         
         //http://stackoverflow.com/questions/6686085/how-can-i-make-a-java-app-using-the-monkeyrunner-api
@@ -91,6 +100,10 @@ public class MonkeyRemote extends JFrame {
         ChimpChat chimpchat = ChimpChat.getInstance(options);
         IChimpDevice device = chimpchat.waitForConnection(TIMEOUT, ".*");
 
+        if(device == null){
+            System.err.println("Error: Couldn't connect to device");
+        }
+        
         /*for (String prop : device.getPropertyList()) {
          System.out.println(prop + ": " + device.getProperty(prop));
          }*/
