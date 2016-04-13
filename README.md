@@ -1,6 +1,8 @@
 # MonkeyRemote
 Remote control your Android device via ADB
 
+Warning: The screen updates are very slow (~1 frame per second).
+
 Run with:
 
     java -jar MonkeyRemote-0.1.jar "PATH TO ADB EXECUTABLE" SCALING_FACTOR
