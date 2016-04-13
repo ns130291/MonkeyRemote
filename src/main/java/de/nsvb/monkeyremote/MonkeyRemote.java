@@ -102,6 +102,7 @@ public class MonkeyRemote extends JFrame {
 
         if(device == null){
             System.err.println("Error: Couldn't connect to device");
+            return;
         }
         
         /*for (String prop : device.getPropertyList()) {
