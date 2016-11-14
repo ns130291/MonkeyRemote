@@ -81,6 +81,7 @@ public class MonkeyRemote extends JFrame {
         if(args.length == 2){
             adb = args[0];
             scalingFactor = Float.parseFloat(args[1]);
+            args = new String[0];
         } 
         if (args.length > 0 || !new File(adb).exists() || new File(adb).isDirectory()){
             if(!new File(adb).exists()){
