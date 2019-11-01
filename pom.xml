@@ -3,13 +3,25 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.nsvb</groupId>
     <artifactId>MonkeyRemote</artifactId>
-    <version>0.3</version>
+    <version>0.4</version>
     <packaging>jar</packaging>
+    <repositories>
+        <repository>
+            <id>com.google.maven</id>
+            <name>Google Maven Repo</name>
+            <url>https://maven.google.com</url>
+        </repository>
+        <repository>
+            <id>io.spring.repo</id>
+            <name>Spring Maven Repo</name>
+            <url>https://repo.spring.io/plugins-release</url>
+        </repository>
+    </repositories>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.7</maven.compiler.source>
         <maven.compiler.target>1.7</maven.compiler.target>
-        <com.android.tools.version>24.3.1</com.android.tools.version>
+        <com.android.tools.version>26.5.1</com.android.tools.version>
     </properties>
     <dependencies>
         <dependency>
@@ -62,6 +74,16 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">

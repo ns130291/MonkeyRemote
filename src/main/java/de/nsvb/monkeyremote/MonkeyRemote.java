@@ -27,7 +27,7 @@ import javax.swing.event.MouseInputAdapter;
  */
 public class MonkeyRemote extends JFrame {
 
-    private static final String ADB = "C:\\Users\\ns130291\\Android\\sdk\\platform-tools\\adb.exe";
+    private static final String ADB = "C:\\adb\\adb.exe";
     private static final long TIMEOUT = 5000;
 
     private static float scalingFactor = 0.5f;
