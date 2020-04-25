@@ -14,12 +14,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package de.nsvb.monkeyremote;
 
 import com.android.chimpchat.ChimpChat;
 import com.android.chimpchat.core.IChimpDevice;
 import com.android.chimpchat.core.TouchPressType;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -49,12 +49,11 @@ public class MonkeyRemote extends JFrame {
     public MonkeyRemote(IChimpDevice device, int deviceWidth, int deviceHeight, BufferedImage initialScreen) {
         this.device = device;
 
-        final int dWScaled = (int) (deviceWidth * scalingFactor);
-        final int dHScaled = (int) (deviceHeight * scalingFactor);
+        int dWScaled = (int) (deviceWidth * scalingFactor);
+        int dHScaled = (int) (deviceHeight * scalingFactor);
 
         setTitle("MonkeyRemote");
-        
-        setSize(dWScaled + 50, dHScaled + 50);
+
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         addWindowListener(new WindowAdapter() {
@@ -73,16 +72,34 @@ public class MonkeyRemote extends JFrame {
         screen.addMouseMotionListener(gestureListener);
 
         add(screen);
-        //pack();
+        pack();
         setVisible(true);
 
         int i = 1;
+        int error_counter = 0;
         while (true) {
+            if (error_counter > 10) {
+                break;
+            }
             System.out.println("#" + i++);
             try {
-                screen.setImage(device.takeSnapshot().getBufferedImage());
+                BufferedImage screenImage = device.takeSnapshot().getBufferedImage();
+                if (screenImage.getWidth() != deviceWidth || screenImage.getHeight() != deviceHeight) {
+                    deviceWidth = screenImage.getWidth();
+                    deviceHeight = screenImage.getHeight();
+                    dWScaled = (int) (deviceWidth * scalingFactor);
+                    dHScaled = (int) (deviceHeight * scalingFactor);
+                    screen.updateScreenSize(dWScaled, dHScaled);
+                    screen.setPreferredSize(new Dimension(dWScaled, dHScaled));
+                    pack();
+                }
+                screen.setImage(screenImage);
                 screen.repaint();
+                if (error_counter > 0) {
+                    error_counter--;
+                }
             } catch (Exception ex) {
+                error_counter++;
                 System.out.println("Couldn't aquire screenshot: " + ex.getMessage());
             }
         }
@@ -90,22 +107,22 @@ public class MonkeyRemote extends JFrame {
 
     public static void main(String[] args) {
         String adb = ADB;
-        if(args.length == 2){
+        if (args.length == 2) {
             adb = args[0];
             scalingFactor = Float.parseFloat(args[1]);
             args = new String[0];
-        } 
-        if (args.length > 0 || !new File(adb).exists() || new File(adb).isDirectory()){
-            if(!new File(adb).exists()){
+        }
+        if (args.length > 0 || !new File(adb).exists() || new File(adb).isDirectory()) {
+            if (!new File(adb).exists()) {
                 System.err.println("Error: ADB executable wasn't found at \"" + adb + "\"");
             }
-            if(new File(adb).isDirectory()){
+            if (new File(adb).isDirectory()) {
                 System.err.println("Error: Path to ADB executable is a directory");
             }
             System.out.println("Usage: MonkeyRemote [Path to ADB executable] [Scaling factor]");
             return;
         }
-        
+
         //http://stackoverflow.com/questions/6686085/how-can-i-make-a-java-app-using-the-monkeyrunner-api
         Map<String, String> options = new TreeMap<>();
         options.put("backend", "adb");
@@ -113,11 +130,11 @@ public class MonkeyRemote extends JFrame {
         ChimpChat chimpchat = ChimpChat.getInstance(options);
         IChimpDevice device = chimpchat.waitForConnection(TIMEOUT, ".*");
 
-        if(device == null){
+        if (device == null) {
             System.err.println("Error: Couldn't connect to device");
             return;
         }
-        
+
         /*for (String prop : device.getPropertyList()) {
          System.out.println(prop + ": " + device.getProperty(prop));
          }*/
@@ -136,26 +153,29 @@ public class MonkeyRemote extends JFrame {
     private class DeviceScreen extends JPanel {
 
         private BufferedImage image;
-        private final int dWScaled;
-        private final int dHScaled;
+        private int dWScaled;
+        private int dHScaled;
 
         public DeviceScreen(BufferedImage image, int dWScaled, int dHScaled) {
             this.image = image;
             this.dWScaled = dWScaled;
             this.dHScaled = dHScaled;
+            setPreferredSize(new Dimension(dWScaled, dHScaled));
         }
 
         public void setImage(BufferedImage image) {
             this.image = image;
+        }
+        
+        public void updateScreenSize(int dWScaled, int dHScaled) {
+            this.dWScaled = dWScaled;
+            this.dHScaled = dHScaled;
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             g.drawImage(image, 0, 0, dWScaled, dHScaled, null);
-            //setSize(dWScaled, dHScaled);
-            //MonkeyRemote monkeyRemote = (MonkeyRemote) SwingUtilities.getAncestorOfClass(MonkeyRemote.class, this);
-            //monkeyRemote.pack();
         }
     }
 
