@@ -9,9 +9,9 @@ Warning: The screen updates are very slow (~1 frame per second).
 ## Usage
 Run with:
 
-    java -jar MonkeyRemote-0.4.jar "PATH TO ADB EXECUTABLE" SCALING_FACTOR
+    java -jar MonkeyRemote-0.5.jar "PATH TO ADB EXECUTABLE" SCALING_FACTOR
 
 so for example:
 
-    java -jar MonkeyRemote-0.4.jar "C:\android-sdk\platform-tools\adb.exe" 0.5
+    java -jar MonkeyRemote-0.5.jar "C:\android-sdk\platform-tools\adb.exe" 0.5
 

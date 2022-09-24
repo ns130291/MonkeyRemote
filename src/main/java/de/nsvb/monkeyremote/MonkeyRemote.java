@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 ns130291
+ * Copyright (C) 2016-2022 ns130291
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,12 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.swing.JFrame;
@@ -42,12 +48,44 @@ public class MonkeyRemote extends JFrame {
     private static final String ADB = "C:\\adb\\adb.exe";
     private static final long TIMEOUT = 5000;
 
+    private static String[] args;
+
     private static float scalingFactor = 0.5f;
+    private static String adb = "";
 
-    private final IChimpDevice device;
+    private IChimpDevice device;
+    private ChimpChat chimpchat;
+    private boolean reconnect = false;
 
-    public MonkeyRemote(IChimpDevice device, int deviceWidth, int deviceHeight, BufferedImage initialScreen) {
-        this.device = device;
+    private IChimpDevice connectDevice() {
+        //http://stackoverflow.com/questions/6686085/how-can-i-make-a-java-app-using-the-monkeyrunner-api
+        Map<String, String> options = new TreeMap<>();
+        options.put("backend", "adb");
+        options.put("adbLocation", adb);
+        chimpchat = ChimpChat.getInstance(options);
+        return chimpchat.waitForConnection(TIMEOUT, ".*");
+    }
+
+    public MonkeyRemote() {
+
+        device = connectDevice();
+
+        if (device == null) {
+            System.err.println("Error: Couldn't connect to device");
+            return;
+        }
+
+        /*for (String prop : device.getPropertyList()) {
+         System.out.println(prop + ": " + device.getProperty(prop));
+         }*/
+        device.wake();
+        BufferedImage initialScreen = device.takeSnapshot().getBufferedImage();
+
+        int deviceWidth = initialScreen.getWidth();
+        int deviceHeight = initialScreen.getHeight();
+
+        System.out.println("Device screen dimension:" + deviceWidth + "x" + deviceHeight);
+
 
         int dWScaled = (int) (deviceWidth * scalingFactor);
         int dHScaled = (int) (deviceHeight * scalingFactor);
@@ -67,7 +105,7 @@ public class MonkeyRemote extends JFrame {
 
         DeviceScreen screen = new DeviceScreen(initialScreen, dWScaled, dHScaled);
 
-        GestureListener gestureListener = new GestureListener(device);
+        GestureListener gestureListener = new GestureListener(device, this);
         screen.addMouseListener(gestureListener);
         screen.addMouseMotionListener(gestureListener);
 
@@ -78,8 +116,8 @@ public class MonkeyRemote extends JFrame {
         int i = 1;
         int error_counter = 0;
         while (true) {
-            if (error_counter > 10) {
-                break;
+            if (error_counter > 10 || reconnect) {
+                restart();
             }
             System.out.println("#" + i++);
             try {
@@ -90,7 +128,6 @@ public class MonkeyRemote extends JFrame {
                     dWScaled = (int) (deviceWidth * scalingFactor);
                     dHScaled = (int) (deviceHeight * scalingFactor);
                     screen.updateScreenSize(dWScaled, dHScaled);
-                    screen.setPreferredSize(new Dimension(dWScaled, dHScaled));
                     pack();
                 }
                 screen.setImage(screenImage);
@@ -106,7 +143,8 @@ public class MonkeyRemote extends JFrame {
     }
 
     public static void main(String[] args) {
-        String adb = ADB;
+        MonkeyRemote.args = args;
+        adb = ADB;
         if (args.length == 2) {
             adb = args[0];
             scalingFactor = Float.parseFloat(args[1]);
@@ -122,32 +160,7 @@ public class MonkeyRemote extends JFrame {
             System.out.println("Usage: MonkeyRemote [Path to ADB executable] [Scaling factor]");
             return;
         }
-
-        //http://stackoverflow.com/questions/6686085/how-can-i-make-a-java-app-using-the-monkeyrunner-api
-        Map<String, String> options = new TreeMap<>();
-        options.put("backend", "adb");
-        options.put("adbLocation", adb);
-        ChimpChat chimpchat = ChimpChat.getInstance(options);
-        IChimpDevice device = chimpchat.waitForConnection(TIMEOUT, ".*");
-
-        if (device == null) {
-            System.err.println("Error: Couldn't connect to device");
-            return;
-        }
-
-        /*for (String prop : device.getPropertyList()) {
-         System.out.println(prop + ": " + device.getProperty(prop));
-         }*/
-        device.wake();
-        BufferedImage screen = device.takeSnapshot().getBufferedImage();
-
-        int width = screen.getWidth();
-        int height = screen.getHeight();
-
-        System.out.println("Device screen dimension:" + height + "x" + width);
-
-        MonkeyRemote remote = new MonkeyRemote(device, width, height, screen);
-        //chimpchat.shutdown();
+        new MonkeyRemote();
     }
 
     private class DeviceScreen extends JPanel {
@@ -166,10 +179,11 @@ public class MonkeyRemote extends JFrame {
         public void setImage(BufferedImage image) {
             this.image = image;
         }
-        
+
         public void updateScreenSize(int dWScaled, int dHScaled) {
             this.dWScaled = dWScaled;
             this.dHScaled = dHScaled;
+            setPreferredSize(new Dimension(dWScaled, dHScaled));
         }
 
         @Override
@@ -183,17 +197,19 @@ public class MonkeyRemote extends JFrame {
 
         private boolean gestureActive = false;
         private final IChimpDevice device;
+        private final MonkeyRemote mr;
         private long lastSent = 0;
         private int lastX = 0;
         private int lastY = 0;
 
-        public GestureListener(IChimpDevice device) {
+        public GestureListener(IChimpDevice device, MonkeyRemote mr) {
             this.device = device;
+            this.mr = mr;
         }
 
         @Override
         public void mousePressed(MouseEvent e) {
-            if (e.getButton() == MouseEvent.BUTTON1) {
+            if (e.getButton() == MouseEvent.BUTTON1 && !mr.reconnect) {
                 if (gestureActive) {
                     sendTouchEvent(lastX, lastY, TouchPressType.UP);
                     System.out.println("UP, cancelling old gesture " + lastX + " " + lastY);
@@ -204,26 +220,26 @@ public class MonkeyRemote extends JFrame {
                 lastX = x;
                 lastY = y;
                 sendTouchEvent(x, y, TouchPressType.DOWN);
-                System.out.println("DOWN " + x + " " + y);
+                //System.out.println("DOWN " + x + " " + y);
             }
         }
 
         @Override
         public void mouseReleased(MouseEvent e) {
-            if (e.getButton() == MouseEvent.BUTTON1) {
+            if (e.getButton() == MouseEvent.BUTTON1 && !mr.reconnect) {
                 if (gestureActive) {
                     int x = (int) (e.getX() / scalingFactor);
                     int y = (int) (e.getY() / scalingFactor);
                     sendTouchEvent(x, y, TouchPressType.UP);
                     gestureActive = false;
-                    System.out.println("UP " + x + " " + y);
+                    //System.out.println("UP " + x + " " + y);
                 }
             }
         }
 
         @Override
         public void mouseDragged(MouseEvent e) {
-            if (gestureActive) {
+            if (gestureActive && !mr.reconnect) {
                 //System.out.println("mouse dragged " + (int) (e.getX() / scalingFactor) + " " + (int) (e.getY() / scalingFactor) + " " + e.getButton());
                 if (System.currentTimeMillis() - lastSent > 1) { // max every 2 milliseconds
                     int x = (int) (e.getX() / scalingFactor);
@@ -232,14 +248,89 @@ public class MonkeyRemote extends JFrame {
                     lastX = x;
                     lastY = y;
                     lastSent = System.currentTimeMillis();
-                    System.out.println("MOVE " + x + " " + y);
+                    //System.out.println("MOVE " + x + " " + y);
                 }
             }
         }
 
         private void sendTouchEvent(int x, int y, TouchPressType type) {
-            device.touch(x, y, type);
+            try {
+                switch (type) {
+                    case DOWN:
+                        device.getManager().touchDown(x, y);
+                        break;
+                    case UP:
+                        device.getManager().touchUp(x, y);
+                        break;
+                    case DOWN_AND_UP:
+                        device.getManager().tap(x, y);
+                        break;
+                    case MOVE:
+                        device.getManager().touchMove(x, y);
+                        break;
+                }
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+                mr.reconnect = true;
+                gestureActive = false;
+            }
         }
+    }
+
+    // https://stackoverflow.com/a/48992863
+    private static void restart() {
+        List<String> command = new ArrayList<>(32);
+        appendJavaExecutable(command);
+        appendVMArgs(command);
+        appendClassPath(command);
+        appendEntryPoint(command);
+        appendArgs(command, args);
+
+        System.out.println(command);
+        try {
+            new ProcessBuilder(command).inheritIO().start();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            System.err.println("Restart failed");
+        }
+        System.exit(0);
+    }
+
+    private static void appendJavaExecutable(List<String> cmd) {
+        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
+    }
+
+    private static void appendVMArgs(Collection<String> cmd) {
+        Collection<String> vmArguments = ManagementFactory.getRuntimeMXBean().getInputArguments();
+
+        String javaToolOptions = System.getenv("JAVA_TOOL_OPTIONS");
+        if (javaToolOptions != null) {
+            Collection<String> javaToolOptionsList = Arrays.asList(javaToolOptions.split(" "));
+            vmArguments = new ArrayList<>(vmArguments);
+            vmArguments.removeAll(javaToolOptionsList);
+        }
+
+        cmd.addAll(vmArguments);
+    }
+
+    private static void appendClassPath(List<String> cmd) {
+        cmd.add("-cp");
+        cmd.add(ManagementFactory.getRuntimeMXBean().getClassPath());
+    }
+
+    private static void appendEntryPoint(List<String> cmd) {
+        StackTraceElement[] stackTrace          = new Throwable().getStackTrace();
+        StackTraceElement   stackTraceElement   = stackTrace[stackTrace.length - 1];
+        String              fullyQualifiedClass = stackTraceElement.getClassName();
+        String              entryMethod         = stackTraceElement.getMethodName();
+        if (!entryMethod.equals("main"))
+            throw new AssertionError("Entry point is not a 'main()': " + fullyQualifiedClass + '.' + entryMethod);
+
+        cmd.add(fullyQualifiedClass);
+    }
+
+    private static void appendArgs(List<String> cmd, String[] args) {
+        cmd.addAll(Arrays.asList(args));
     }
 
 }
